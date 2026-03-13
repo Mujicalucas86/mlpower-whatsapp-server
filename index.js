@@ -10,7 +10,7 @@ const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const VF_API_KEY = process.env.VF_API_KEY;
 const VF_PROJECT_VERSION = "production";
 const DEBOUNCE_MS = 3000;
-const LOGGING_URL = "https://script.google.com/macros/s/AKfycbwxfoqaj4RH8cxI_2UsrChz_6EnXTaAHBbvgvT6vE7jx8tk0ro0jygOtgPegMQqudeFzQ/exec";
+const LOGGING_URL = "https://script.google.com/macros/s/AKfycby_euUgsPdw9PSXAP4LltCciNlWf2Ox9gRV3qUQbNAB8qjTw3eAr71trGXF2-aR1wwq4A/exec";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const timers = {};
