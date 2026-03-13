@@ -29,6 +29,32 @@ app.get("/webhook", (req, res) => {
   }
 });
 
+// Reset de sesión de Voiceflow para un número
+app.get("/reset", async (req, res) => {
+  const { phone, key } = req.query;
+  if (key !== VERIFY_TOKEN) return res.sendStatus(403);
+  if (!phone) return res.status(400).send("Falta el parámetro phone");
+
+  try {
+    await axios.delete(
+      `https://general-runtime.voiceflow.com/state/user/${phone}`,
+      {
+        headers: {
+          Authorization: VF_API_KEY,
+          versionID: VF_PROJECT_VERSION,
+        },
+      }
+    );
+    delete mensajesAcumulados[phone];
+    delete timers[phone];
+    console.log(`Sesión reseteada para ${phone}`);
+    res.send(`✅ Sesión reseteada para ${phone}`);
+  } catch (err) {
+    console.error("Error reset:", err.response?.data || err.message);
+    res.status(500).send("Error al resetear sesión");
+  }
+});
+
 // Guarda la conversación en Google Sheets
 async function logConversacion(numero, mensaje, respuesta) {
   try {
