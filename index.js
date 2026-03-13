@@ -9,9 +9,14 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const VF_API_KEY = process.env.VF_API_KEY;
 const VF_PROJECT_VERSION = "production";
+const DEBOUNCE_MS = 3000;
+const LOGGING_URL = "https://script.google.com/macros/s/AKfycbwxfoqaj4RH8cxI_2UsrChz_6EnXTaAHBbvgvT6vE7jx8tk0ro0jygOtgPegMQqudeFzQ/exec";
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Verificación del webhook (Meta lo llama una sola vez al configurar)
+const timers = {};
+const mensajesAcumulados = {};
+
+// Verificación del webhook
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -24,23 +29,24 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// Recibe mensajes de WhatsApp
-app.post("/webhook", async (req, res) => {
-  res.sendStatus(200); // Responder rápido a Meta
+// Guarda la conversación en Google Sheets
+async function logConversacion(numero, mensaje, respuesta) {
+  try {
+    await axios.post(LOGGING_URL, { numero, mensaje, respuesta });
+  } catch (err) {
+    console.error("Error logging:", err.message);
+  }
+}
+
+// Procesa el mensaje completo y lo manda a Voiceflow
+async function procesarMensajeCompleto(userPhone) {
+  const userText = mensajesAcumulados[userPhone].join(" ");
+  delete mensajesAcumulados[userPhone];
+  delete timers[userPhone];
+
+  console.log(`Procesando mensaje de ${userPhone}: ${userText}`);
 
   try {
-    const entry = req.body.entry?.[0];
-    const change = entry?.changes?.[0];
-    const message = change?.value?.messages?.[0];
-
-    if (!message || message.type !== "text") return;
-
-    const userPhone = message.from;
-    const userText = message.text.body;
-
-    console.log(`Mensaje de ${userPhone}: ${userText}`);
-
-    // Mandar mensaje a Voiceflow
     const vfResponse = await axios.post(
       `https://general-runtime.voiceflow.com/state/user/${userPhone}/interact`,
       {
@@ -56,7 +62,6 @@ app.post("/webhook", async (req, res) => {
       }
     );
 
-    // Juntar todos los mensajes de texto que devuelve Voiceflow
     const traces = vfResponse.data;
     const textos = traces
       .filter((t) => t.type === "text" && t.payload?.message)
@@ -66,7 +71,7 @@ app.post("/webhook", async (req, res) => {
 
     const respuesta = textos.join("\n\n");
 
-    // Mandar respuesta al cliente por WhatsApp
+    // Mandar respuesta al cliente
     await axios.post(
       `https://graph.facebook.com/v19.0/${PHONE_NUMBER_ID}/messages`,
       {
@@ -84,6 +89,43 @@ app.post("/webhook", async (req, res) => {
     );
 
     console.log(`Respuesta enviada a ${userPhone}`);
+
+    // Guardar en Google Sheets
+    await logConversacion(userPhone, userText, respuesta);
+
+  } catch (err) {
+    console.error("Error:", err.response?.data || err.message);
+  }
+}
+
+// Recibe mensajes de WhatsApp
+app.post("/webhook", async (req, res) => {
+  res.sendStatus(200);
+
+  try {
+    const entry = req.body.entry?.[0];
+    const change = entry?.changes?.[0];
+    const message = change?.value?.messages?.[0];
+
+    if (!message || message.type !== "text") return;
+
+    const userPhone = message.from;
+    const userText = message.text.body;
+
+    console.log(`Fragmento recibido de ${userPhone}: ${userText}`);
+
+    if (!mensajesAcumulados[userPhone]) {
+      mensajesAcumulados[userPhone] = [];
+    }
+    mensajesAcumulados[userPhone].push(userText);
+
+    if (timers[userPhone]) {
+      clearTimeout(timers[userPhone]);
+    }
+    timers[userPhone] = setTimeout(() => {
+      procesarMensajeCompleto(userPhone);
+    }, DEBOUNCE_MS);
+
   } catch (err) {
     console.error("Error:", err.response?.data || err.message);
   }
