@@ -9,7 +9,7 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const VF_API_KEY = process.env.VF_API_KEY;
 const VF_PROJECT_VERSION = "production";
-const DEBOUNCE_MS = 3000;
+const DEBOUNCE_MS = 7000;
 const LOGGING_URL = "https://script.google.com/macros/s/AKfycbyhjeV-B9CE9AnfS875zEPjlDIz2b-rcjA7sQoADngN_Hri3Y8_1Epg22RmDDIsTciMzg/exec";
 // ─────────────────────────────────────────────────────────────────────────────
 
